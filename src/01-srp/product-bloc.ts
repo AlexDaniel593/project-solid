@@ -1,10 +1,13 @@
 
 /**
- * VIOLACIÓN AL PRINCIPIO DE RESPONSABILIDAD ÚNICA (SRP)
- * 
- * Este archivo muestra una clase "Dios" o un componente que hace demasiadas cosas.
- * En el contexto de la Reserva Ecológica, el ProductBloc gestiona el inventario de la tienda
- * de souvenirs y, al mismo tiempo, se encarga de las notificaciones por correo.
+ * APLICACIÓN DEL PRINCIPIO DE RESPONSABILIDAD ÚNICA (SRP)
+ *
+ * En el contexto de la Reserva Ecológica, el sistema de souvenirs
+ * se divide en tres responsabilidades claramente separadas:
+ * 1. ProductService: gestiona la persistencia de productos.
+ * 2. EmailService: gestiona el envío de notificaciones.
+ * 3. ProductBloc: orquesta la interacción entre la UI y los servicios,
+ *    pero NO implementa la lógica de persistencia ni de envío de correos.
  */
 
 interface Product {
@@ -12,28 +15,67 @@ interface Product {
     name: string;
 }
 
-export class ProductBloc {
-
+class ProductService {
     private products: Product[] = [];
 
-    // Responsabilidad 1: Carga de productos (Lógica de Negocio/Persistencia)
-    loadProduct(id: number) {
-        console.log(`Cargando producto con ID: ${id} desde el inventario del parque...`);
-        // Simulación de carga
+    getProduct(id: number): Product | undefined {
+        console.log('Producto: ', { id, name: 'OLED Tv' });
         return this.products.find(p => p.id === id);
     }
 
-    // Responsabilidad 2: Guardado de productos (Lógica de Persistencia)
-    saveProduct(product: Product) {
-        console.log(`Guardando el producto ${product.name} en la base de datos de la reserva...`);
+    saveProduct(product: Product): void {
+        console.log('Guardando en base de datos', product);
         this.products.push(product);
     }
+}
 
-    // Responsabilidad 3: Envío de notificaciones (Servicio de Infraestructura)
-    // ESTA ES LA VIOLACIÓN: El Bloc no debería saber CÓMO enviar correos electrónicos.
-    notifyCustomer(email: string, message: string) {
-        console.log(`[Mailer] Enviando correo a ${email}: ${message}`);
-        // Lógica directa de envío de correo acoplada aquí
+class EmailService {
+    private masterEmail: string = 'reserva@ecologica.ec';
+
+    sendEmail(emailList: string[], template: 'to-clients' | 'to-admins'): void {
+        console.log('Enviando correo desde ', this.masterEmail);
+        console.log('Destinatarios: ', emailList);
+        console.log('Usando plantilla: ', template);
+    }
+}
+
+class ProductBloc {
+    constructor(
+        private productService: ProductService,
+        private emailService: EmailService
+    ) {}
+
+    loadProduct(id: number): void {
+        this.productService.getProduct(id);
     }
 
+    saveProduct(product: Product): void {
+        this.productService.saveProduct(product);
+    }
+
+    notifyClients(emailList: string[], template: 'to-clients' | 'to-admins'): void {
+        this.emailService.sendEmail(emailList, template);
+    }
 }
+
+class CartBloc {
+    onAddToCart(productId: number): void {
+        console.log('Agregando al carrito ', productId);
+    }
+}
+
+
+(() => {
+    const productService = new ProductService();
+    const emailService = new EmailService();
+    const productBloc = new ProductBloc(productService, emailService);
+    const cartBloc = new CartBloc();
+
+    productBloc.loadProduct(10);
+    productBloc.saveProduct({ id: 10, name: 'OLED TV' });
+    productBloc.notifyClients(
+        ['client1@example.com', 'client2@example.com'],
+        'to-clients'
+    );
+    cartBloc.onAddToCart(10);
+})();
